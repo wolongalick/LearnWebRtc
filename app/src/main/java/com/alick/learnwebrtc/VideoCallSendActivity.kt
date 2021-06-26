@@ -70,9 +70,9 @@ class VideoCallSendActivity : BaseVideoCallActivity() {
                 rlLocalVideoContainer.visibility = View.VISIBLE
                 isAnswered = true
                 tvDuration.beginChatTime()
+                init()
+                createOffer()
             }
-            init()
-            createOffer()
         }
 
         override fun onIceCandidateFromRemote(candidate: IceCandidate) {

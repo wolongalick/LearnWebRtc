@@ -12,6 +12,7 @@ import com.alick.learnwebrtc.utils.BLog
 import com.alick.learnwebrtc.utils.ToastUtils
 import org.webrtc.*
 import org.webrtc.PeerConnection.*
+import org.webrtc.RendererCommon.ScalingType
 import org.webrtc.audio.AudioDeviceModule
 import org.webrtc.audio.JavaAudioDeviceModule.*
 import java.io.File
@@ -39,7 +40,7 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
     protected abstract val mLocalRenderer: SurfaceViewRenderer
     protected abstract val mRemoteRenderer: SurfaceViewRenderer
 
-    protected val surfaceTextureHelper: SurfaceTextureHelper by lazy {
+    private val surfaceTextureHelper: SurfaceTextureHelper by lazy {
         val surfaceTextureHelper =
             SurfaceTextureHelper.create("CaptureThread", eglBase.eglBaseContext)
 
@@ -57,23 +58,12 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
     }
 
     private val remoteProxyRenderer: VideoSink = VideoSink {
+        BLog.i("--->onFrame()--->remoteProxyRenderer",TAG)
         mRemoteRenderer.onFrame(it)
     }
 
-    private val videoFileRenderer: VideoFileRenderer by lazy {
-        val videoFileRenderer = VideoFileRenderer(
-            File(
-                getExternalFilesDir("webRtc"),
-                "${System.currentTimeMillis()}.mp4"
-            ).absolutePath,
-            WebRtcConstant.HD_VIDEO_WIDTH,
-            WebRtcConstant.HD_VIDEO_HEIGHT,
-            eglBase.eglBaseContext
-        )
-        videoFileRenderer
-    }
-
     private val localProxyVideoSink: VideoSink = VideoSink {
+        BLog.i("--->onFrame()--->localProxyVideoSink",TAG)
         mLocalRenderer.onFrame(it)
     }
 
@@ -81,10 +71,8 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
         val remoteSinks = mutableListOf<VideoSink>()
         remoteSinks.add(remoteProxyRenderer)
         remoteSinks.add(videoFileRenderer)
-
         remoteSinks
     }
-
 
     private val localVideoTrack: VideoTrack by lazy {
         videoCapturer?.let {
@@ -122,6 +110,19 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
     private val audioSource: AudioSource by lazy {
         val audioSource = factory.createAudioSource(audioConstraints)
         audioSource
+    }
+
+    private val videoFileRenderer: VideoFileRenderer by lazy {
+        val videoFileRenderer = VideoFileRenderer(
+            File(
+                getExternalFilesDir("webRtc"),
+                "${System.currentTimeMillis()}.mp4"
+            ).absolutePath,
+            WebRtcConstant.HD_VIDEO_WIDTH,
+            WebRtcConstant.HD_VIDEO_HEIGHT,
+            eglBase.eglBaseContext
+        )
+        videoFileRenderer
     }
 
     private val localAudioTrack: AudioTrack by lazy {
@@ -357,6 +358,8 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
                 .setEnableInternalTracer(true)
                 .createInitializationOptions()
         )
+        initRenderer()
+
         val options = PeerConnectionFactory.Options()
         if (loopback) {
             options.networkIgnoreMask = 0
@@ -400,6 +403,18 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
         }
         peerConnection.addTrack(localAudioTrack, mediaStreamLabels)
         findVideoSender()
+    }
+
+    private fun initRenderer() {
+        mRemoteRenderer.init(eglBase.eglBaseContext, null)
+        mRemoteRenderer.setScalingType(ScalingType.SCALE_ASPECT_FILL)
+        mRemoteRenderer.setEnableHardwareScaler(true)
+
+
+        mLocalRenderer.init(eglBase.eglBaseContext, null)
+        mLocalRenderer.setScalingType(ScalingType.SCALE_ASPECT_FIT)
+        mLocalRenderer.setZOrderMediaOverlay(true)
+        mLocalRenderer.setEnableHardwareScaler(true /* enabled */)
     }
 
     private fun findVideoSender() {
@@ -500,12 +515,12 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
     }
 
     protected fun drainCandidates() {
-        BLog.i("--->drainCandidates()",TAG)
+        BLog.i("--->drainCandidates()", TAG)
         synchronized(BaseVideoCallActivity::class.java) {
             if (queuedRemoteCandidates != null) {
                 queuedRemoteCandidates?.let {
                     for (candidate in it) {
-                        BLog.i("--->drainCandidates(),candidate:${candidate}",TAG)
+                        BLog.i("--->drainCandidates(),candidate:${candidate}", TAG)
                         peerConnection.addIceCandidate(candidate)
                     }
                 }
@@ -515,14 +530,20 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
     }
 
     protected fun addIceCandidateFromRemote(candidate: IceCandidate) {
-        BLog.i("--->addIceCandidateFromRemote()",TAG)
+        BLog.i("--->addIceCandidateFromRemote()", TAG)
         if (queuedRemoteCandidates != null) {
             synchronized(BaseVideoCallActivity::class.java) {
-                BLog.i("--->addIceCandidateFromRemote(),先添加到queuedRemoteCandidates集合中,candidate:${candidate}",TAG)
+                BLog.i(
+                    "--->addIceCandidateFromRemote(),先添加到queuedRemoteCandidates集合中,candidate:${candidate}",
+                    TAG
+                )
                 queuedRemoteCandidates?.add(candidate)
             }
         } else {
-            BLog.i("--->addIceCandidateFromRemote(),直接添加到peerConnection中,candidate:${candidate}",TAG)
+            BLog.i(
+                "--->addIceCandidateFromRemote(),直接添加到peerConnection中,candidate:${candidate}",
+                TAG
+            )
             peerConnection.addIceCandidate(candidate)
         }
     }
