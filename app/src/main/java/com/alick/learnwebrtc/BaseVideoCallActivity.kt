@@ -33,24 +33,21 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
     private val tracing = true
     private val videoCodecHwAcceleration = true
     private val isRecordVideo = false   //是否需要录制视频
-
     protected var roomId: String = ""
     protected var isAnswered = false //是否已接听
+    private var isUsingFrontCamera: Boolean = false     //是否正在使用前置摄像头
+    private var isInitialized = false                   //是否已经初始化过了
+    private var isRendererSwapped = false               //是否交换过本地和远程的渲染器位置
 
     protected abstract val fromAccount: String
-
     protected abstract val toAccount: String
 
     protected abstract val mPipRenderer: SurfaceViewRenderer
 
     protected abstract val mFullscreenRenderer: SurfaceViewRenderer
 
-    protected abstract val isSender: Boolean //是否是主叫方
+    protected abstract val isSender: Boolean            //是否是主叫方
 
-    private var isUsingFrontCamera: Boolean = false
-
-    private var isInitialized = false
-    private var isRendererSwapped = false     //是否交换过本地和远程的渲染器位置
 
     private val surfaceTextureHelper: SurfaceTextureHelper by lazy {
         val surfaceTextureHelper =
@@ -474,7 +471,8 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
         mPipRenderer.setScalingType(ScalingType.SCALE_ASPECT_FIT)
         mPipRenderer.setZOrderMediaOverlay(true)
         mPipRenderer.setEnableHardwareScaler(true)
-        mPipRenderer.setMirror(true)
+
+        previewSelf()
     }
 
     private fun findVideoSender() {
@@ -647,7 +645,7 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun swapRenderer() {
+    protected fun swapRenderer() {
         isRendererSwapped = !isRendererSwapped
         setMirror()
     }
@@ -689,6 +687,10 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
                 fullscreenRenderer.setMirror(false)
             }
         }
+    }
+
+    private fun previewSelf() {
+        swapRenderer()
     }
 
 }

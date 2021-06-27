@@ -73,6 +73,7 @@ class VideoCallSendActivity : BaseVideoCallActivity() {
                 rlLocalVideoContainer.visibility = View.VISIBLE
                 isAnswered = true
                 tvDuration.beginChatTime()
+                swapRenderer()
                 createOffer()
             }
         }
