@@ -30,6 +30,19 @@
             android:textColor="#333333"
             android:textSize="18sp" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_centerVertical="true"
+            android:layout_alignParentEnd="true"
+            android:gravity="center"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
+            android:text="房间列表"
+            android:textColor="#666666"
+            android:textSize="14sp"
+            android:onClick="roomList"/>
+
         <View
             android:layout_width="match_parent"
             android:layout_height="0.5dp"

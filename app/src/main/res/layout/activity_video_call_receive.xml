@@ -12,7 +12,7 @@
         android:layout_height="match_parent">
 
         <org.webrtc.SurfaceViewRenderer
-            android:id="@+id/remoteRenderer"
+            android:id="@+id/fullscreenRRenderer"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
     </RelativeLayout>
@@ -41,7 +41,7 @@
         android:visibility="invisible">
 
         <org.webrtc.SurfaceViewRenderer
-            android:id="@+id/localRenderer"
+            android:id="@+id/pipRenderer"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
     </RelativeLayout>

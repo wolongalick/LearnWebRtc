@@ -9,9 +9,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.alick.learnwebrtc.adapter.ContactsAdapter
 import com.alick.learnwebrtc.bean.Contact
+import com.alick.learnwebrtc.bean.RoomBean
 import com.alick.learnwebrtc.bean.request.GetAllContactRequest
 import com.alick.learnwebrtc.manager.WebSocketManager
+import com.alick.learnwebrtc.http_api.ApiUtils
+import com.alick.learnwebrtc.http_api.GetAllRoomListResponse
 import com.alick.learnwebrtc.utils.FilterUtils
+import com.alick.learnwebrtc.utils.ToastUtils
 import kotlinx.android.synthetic.main.activity_contacts.*
 import org.java_websocket.handshake.ServerHandshake
 
@@ -24,6 +28,22 @@ class ContactsActivity : AppCompatActivity() {
 
     private val contactsAdapter: ContactsAdapter by lazy {
         ContactsAdapter(allContactsList)
+    }
+
+    private val webSocketListener = object : WebSocketManager.IWebSocketListener {
+        override fun onOpen(serverHandshake: ServerHandshake) {
+        }
+
+        override fun onClose(code: Int, reason: String, remote: Boolean) {
+            finish()
+        }
+
+        override fun onMessage(message: String) {
+        }
+
+        override fun onError(exception: Exception) {
+            swipeRefreshLayout.isRefreshing = false
+        }
     }
 
     private val iContactsListener by lazy {
@@ -68,22 +88,8 @@ class ContactsActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        WebSocketManager.addWebSocketListener(object : WebSocketManager.IWebSocketListener {
-            override fun onOpen(serverHandshake: ServerHandshake) {
-            }
 
-            override fun onClose(code: Int, reason: String, remote: Boolean) {
-                finish()
-            }
-
-            override fun onMessage(message: String) {
-            }
-
-            override fun onError(exception: Exception) {
-                swipeRefreshLayout.isRefreshing = false
-            }
-        })
-
+        WebSocketManager.addWebSocketListener(webSocketListener)
         WebSocketManager.addIContactsListener(iContactsListener)
 
         swipeRefreshLayout.setOnRefreshListener {
@@ -125,6 +131,16 @@ class ContactsActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         WebSocketManager.removeIContactsListener(iContactsListener)
+        WebSocketManager.removeWebSocketListener(webSocketListener)
+    }
+
+    fun roomList(view: View) {
+        ApiUtils.requestGet<MutableList<RoomBean>>(ApiUtils.API_GET_ROOM_LIST,{
+            ToastUtils.show(it?.toString() ?:"无数据")
+        },{
+            ToastUtils.show(it)
+        })
+
     }
 
 }

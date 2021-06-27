@@ -30,11 +30,14 @@ class VideoCallSendActivity : BaseVideoCallActivity() {
     override val toAccount: String
         get() = intent.getStringExtra(INTENT_KEY_TO_ACCOUNT) ?: ""
 
-    override val mLocalRenderer: SurfaceViewRenderer
-        get() = localRenderer
+    override val mPipRenderer: SurfaceViewRenderer
+        get() = pipRenderer
 
-    override val mRemoteRenderer: SurfaceViewRenderer
-        get() = remoteRenderer
+    override val mFullscreenRenderer: SurfaceViewRenderer
+        get() = fullscreenRRenderer
+
+    override val isSender: Boolean
+        get()= true
 
     private val iSignalOutgoingListener = object : WebSocketManager.ISignalOutgoingListener {
         override fun onCreateSuccess(roomBean: RoomBean) {
@@ -123,6 +126,13 @@ class VideoCallSendActivity : BaseVideoCallActivity() {
         tvHangup.setOnClickListener {
             leave()
         }
+
+        //切换摄像头
+        ivSwitchCamera.setOnClickListener {
+            switchCamera()
+        }
+
+        init()
 
         WebSocketManager.addISignalOutgoingListener(iSignalOutgoingListener)
         WebSocketManager.addIContactsListener(iContactsListener)

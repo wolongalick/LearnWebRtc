@@ -1,5 +1,6 @@
 package com.alick.learnwebrtc
 
+import android.os.Bundle
 import android.os.Environment
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
@@ -8,8 +9,10 @@ import com.alick.learnwebrtc.bean.request.SendIceCandidateRemovedRequest
 import com.alick.learnwebrtc.bean.request.SendIceCandidateRequest
 import com.alick.learnwebrtc.constant.WebRtcConstant
 import com.alick.learnwebrtc.manager.SignalManager
+import com.alick.learnwebrtc.manager.WebSocketManager
 import com.alick.learnwebrtc.utils.BLog
 import com.alick.learnwebrtc.utils.ToastUtils
+import org.java_websocket.handshake.ServerHandshake
 import org.webrtc.*
 import org.webrtc.PeerConnection.*
 import org.webrtc.RendererCommon.ScalingType
@@ -609,9 +612,83 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
         }
     }
 
+    private fun releaseWebRtc() {
+        if (!isInitialized) {
+            return
+        }
+        mPipRenderer.release()
+        mFullscreenRenderer.release()
+        if (isRecordVideo) {
+            videoFileRenderer.release()
+        }
+
+        factory.stopAecDump()
+        peerConnection.dispose()
+        audioSource.dispose()
+        videoCapturer?.let {
+            it.stopCapture()
+            it.dispose()
+        }
+        videoSource.dispose()
+        surfaceTextureHelper.dispose()
+        factory.dispose()
+        eglBase.release()
+        PeerConnectionFactory.stopInternalTracingCapture()
+        PeerConnectionFactory.shutdownInternalTracer()
+    }
+
     override fun onBackPressed() {
 
     }
 
+    override fun onDestroy() {
+        WebSocketManager.removeWebSocketListener(webSocketListener)
+        releaseWebRtc()
+        super.onDestroy()
+    }
+
+    private fun swapRenderer() {
+        isRendererSwapped = !isRendererSwapped
+        setMirror()
+    }
+
+    private fun setMirror() {
+        setPipRendererMirror(mPipRenderer)
+        setFullscreenRendererMirror(mFullscreenRenderer)
+    }
+
+    //设置画中画的
+    private fun setPipRendererMirror(pipRenderer: SurfaceViewRenderer) {
+        if (isUsingFrontCamera) {
+            if (isRendererSwapped) {
+                pipRenderer.setMirror(false)//
+            } else {
+                pipRenderer.setMirror(true)//自拍默认,需要设置为镜像
+            }
+        } else {
+            if (isRendererSwapped) {
+                pipRenderer.setMirror(false)
+            } else {
+                pipRenderer.setMirror(false)
+            }
+        }
+    }
+
+    //设置全屏的
+    private fun setFullscreenRendererMirror(fullscreenRenderer: SurfaceViewRenderer) {
+        if (isUsingFrontCamera) {
+            if (isRendererSwapped) {
+                fullscreenRenderer.setMirror(true)//自拍默认,需要设置为镜像
+            } else {
+                fullscreenRenderer.setMirror(false)
+            }
+        } else {
+            if (isRendererSwapped) {
+                fullscreenRenderer.setMirror(false)
+            } else {
+                fullscreenRenderer.setMirror(false)
+            }
+        }
+    }
 
 }

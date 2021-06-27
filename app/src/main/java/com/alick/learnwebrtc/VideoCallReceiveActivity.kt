@@ -86,12 +86,14 @@ class VideoCallReceiveActivity : BaseVideoCallActivity() {
     override val toAccount: String
         get() = AccountManager.getAccount()
 
-    override val mLocalRenderer: SurfaceViewRenderer
-        get() = localRenderer
+    override val mPipRenderer: SurfaceViewRenderer
+        get() = pipRenderer
 
-    override val mRemoteRenderer: SurfaceViewRenderer
-        get() = remoteRenderer
+    override val mFullscreenRenderer: SurfaceViewRenderer
+        get() = fullscreenRRenderer
 
+    override val isSender: Boolean
+        get() = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -121,6 +123,13 @@ class VideoCallReceiveActivity : BaseVideoCallActivity() {
         tvHangup.setOnClickListener {
             leave()
         }
+
+        //切换摄像头
+        ivSwitchCamera.setOnClickListener {
+            switchCamera()
+        }
+
+        init()
     }
 
     private fun leave() {
@@ -176,4 +185,5 @@ class VideoCallReceiveActivity : BaseVideoCallActivity() {
 
         }, sessionDescription)
     }
+
 }
