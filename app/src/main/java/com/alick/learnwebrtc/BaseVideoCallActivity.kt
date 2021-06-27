@@ -29,6 +29,7 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
     private val loopback = false
     private val tracing = true
     private val videoCodecHwAcceleration = true
+    private val isRecordVideo = false   //是否需要录制视频
 
     protected var roomId: String = ""
     protected var isAnswered = false //是否已接听
@@ -37,8 +38,16 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
 
     protected abstract val toAccount: String
 
-    protected abstract val mLocalRenderer: SurfaceViewRenderer
-    protected abstract val mRemoteRenderer: SurfaceViewRenderer
+    protected abstract val mPipRenderer: SurfaceViewRenderer
+
+    protected abstract val mFullscreenRenderer: SurfaceViewRenderer
+
+    protected abstract val isSender: Boolean //是否是主叫方
+
+    private var isUsingFrontCamera: Boolean = false
+
+    private var isInitialized = false
+    private var isRendererSwapped = false     //是否交换过本地和远程的渲染器位置
 
     private val surfaceTextureHelper: SurfaceTextureHelper by lazy {
         val surfaceTextureHelper =
@@ -47,30 +56,37 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
         surfaceTextureHelper
     }
 
-    private val videoCapturer: VideoCapturer? by lazy {
-        val videoCapturer: VideoCapturer?
-        if (Camera2Enumerator.isSupported(this)) {
-            videoCapturer = createCameraCapture(Camera2Enumerator(this))
+    private val videoCapturer: CameraVideoCapturer? by lazy {
+        val videoCapturer = if (Camera2Enumerator.isSupported(this)) {
+            createCameraCapture(Camera2Enumerator(this))
         } else {
-            videoCapturer = createCameraCapture(Camera1Enumerator(true))
+            createCameraCapture(Camera1Enumerator(true))
         }
         videoCapturer
     }
 
-    private val remoteProxyRenderer: VideoSink = VideoSink {
-        BLog.i("--->onFrame()--->remoteProxyRenderer",TAG)
-        mRemoteRenderer.onFrame(it)
+    private val remoteVideoSink: VideoSink = VideoSink {
+        if (isRendererSwapped) {
+            mPipRenderer.onFrame(it)
+        } else {
+            mFullscreenRenderer.onFrame(it)
+        }
     }
 
-    private val localProxyVideoSink: VideoSink = VideoSink {
-        BLog.i("--->onFrame()--->localProxyVideoSink",TAG)
-        mLocalRenderer.onFrame(it)
+    private val localVideoSink: VideoSink = VideoSink {
+        if (isRendererSwapped) {
+            mFullscreenRenderer.onFrame(it)
+        } else {
+            mPipRenderer.onFrame(it)
+        }
     }
 
     private val remoteSinks: MutableList<VideoSink> by lazy {
         val remoteSinks = mutableListOf<VideoSink>()
-        remoteSinks.add(remoteProxyRenderer)
-        remoteSinks.add(videoFileRenderer)
+        remoteSinks.add(remoteVideoSink)
+        if (isRecordVideo) {
+            remoteSinks.add(videoFileRenderer)
+        }
         remoteSinks
     }
 
@@ -88,7 +104,7 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
             videoSource
         )
         localVideoTrack.setEnabled(true)
-        localVideoTrack.addSink(localProxyVideoSink)
+        localVideoTrack.addSink(localVideoSink)
         localVideoTrack
     }
 
@@ -247,10 +263,44 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
         }
     }
 
-    protected lateinit var factory: PeerConnectionFactory
+    private val factory: PeerConnectionFactory by lazy {
+        val options = PeerConnectionFactory.Options()
+        if (loopback) {
+            options.networkIgnoreMask = 0
+        }
+        if (tracing) {
+            PeerConnectionFactory.startInternalTracingCapture(
+                Environment.getExternalStorageDirectory().absolutePath + File.separator
+                        + "webrtc-trace.txt"
+            )
+        }
+
+        val audioDeviceModule: AudioDeviceModule = createJavaAudioDevice()
+        val encoderFactory: VideoEncoderFactory
+        val decoderFactory: VideoDecoderFactory
+
+        if (videoCodecHwAcceleration) {
+            encoderFactory = DefaultVideoEncoderFactory(eglBase.eglBaseContext, true, false)
+            decoderFactory = DefaultVideoDecoderFactory(eglBase.eglBaseContext)
+        } else {
+            encoderFactory = SoftwareVideoEncoderFactory()
+            decoderFactory = SoftwareVideoDecoderFactory()
+        }
+
+        val factory = PeerConnectionFactory.builder()
+            .setOptions(options)
+            .setAudioDeviceModule(audioDeviceModule)
+            .setVideoEncoderFactory(encoderFactory)
+            .setVideoDecoderFactory(decoderFactory)
+            .createPeerConnectionFactory()
+
+        audioDeviceModule.release()
+
+        factory
+    }
 
 
-    protected val eglBase: EglBase by lazy {
+    private val eglBase: EglBase by lazy {
         EglBase.create()
     }
 
@@ -312,7 +362,7 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
 
     private var queuedRemoteCandidates: MutableList<IceCandidate>? = mutableListOf<IceCandidate>()
 
-    protected val iceServers: MutableList<IceServer> by lazy {
+    private val iceServers: MutableList<IceServer> by lazy {
         val iceServers = mutableListOf<IceServer>()
         val turnServer: IceServer =
             IceServer.builder("stun:turn2.l.google.com")//google官方的turn服务器
@@ -324,7 +374,7 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
         iceServers
     }
 
-    protected val rtcConfig: RTCConfiguration by lazy {
+    private val rtcConfig: RTCConfiguration by lazy {
         val rtcConfig = RTCConfiguration(iceServers)
         // TCP candidates are only useful when connecting to a server that supports
         // ICE-TCP.
@@ -351,46 +401,48 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
         peerConnection!!
     }
 
+    private val webSocketListener = object : WebSocketManager.IWebSocketListener {
+        override fun onOpen(serverHandshake: ServerHandshake) {
+        }
+
+        override fun onClose(code: Int, reason: String, remote: Boolean) {
+            finish()
+        }
+
+        override fun onMessage(message: String) {
+        }
+
+        override fun onError(exception: Exception) {
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        WebSocketManager.addWebSocketListener(webSocketListener)
+    }
+
+    protected fun switchCamera() {
+        videoCapturer?.switchCamera(object : CameraVideoCapturer.CameraSwitchHandler {
+            override fun onCameraSwitchDone(isFrontFacing: Boolean) {
+                isUsingFrontCamera = isFrontFacing
+                setMirror()
+            }
+
+            override fun onCameraSwitchError(error: String?) {
+                ToastUtils.show("切换摄像头失败:${error}")
+            }
+
+        })
+    }
+
     protected fun init() {
         PeerConnectionFactory.initialize(
-            PeerConnectionFactory.InitializationOptions.builder(getApplicationContext())
+            PeerConnectionFactory.InitializationOptions.builder(applicationContext)
                 .setFieldTrials("WebRTC-IntelVP8/Enabled/")
                 .setEnableInternalTracer(true)
                 .createInitializationOptions()
         )
         initRenderer()
-
-        val options = PeerConnectionFactory.Options()
-        if (loopback) {
-            options.networkIgnoreMask = 0
-        }
-        if (tracing) {
-            PeerConnectionFactory.startInternalTracingCapture(
-                Environment.getExternalStorageDirectory().absolutePath + File.separator
-                        + "webrtc-trace.txt"
-            )
-        }
-
-        val audioDeviceModule: AudioDeviceModule = createJavaAudioDevice()
-        val encoderFactory: VideoEncoderFactory
-        val decoderFactory: VideoDecoderFactory
-
-        if (videoCodecHwAcceleration) {
-            encoderFactory = DefaultVideoEncoderFactory(eglBase.eglBaseContext, true, false)
-            decoderFactory = DefaultVideoDecoderFactory(eglBase.eglBaseContext)
-        } else {
-            encoderFactory = SoftwareVideoEncoderFactory()
-            decoderFactory = SoftwareVideoDecoderFactory()
-        }
-
-        factory = PeerConnectionFactory.builder()
-            .setOptions(options)
-            .setAudioDeviceModule(audioDeviceModule)
-            .setVideoEncoderFactory(encoderFactory)
-            .setVideoDecoderFactory(decoderFactory)
-            .createPeerConnectionFactory()
-
-        audioDeviceModule.release()
 
         val mediaStreamLabels = listOf(WebRtcConstant.VIDEO_AUDIO_TRACK_ID)
         peerConnection.addTrack(localVideoTrack, mediaStreamLabels)
@@ -403,18 +455,23 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
         }
         peerConnection.addTrack(localAudioTrack, mediaStreamLabels)
         findVideoSender()
+        isInitialized = true
     }
 
     private fun initRenderer() {
-        mRemoteRenderer.init(eglBase.eglBaseContext, null)
-        mRemoteRenderer.setScalingType(ScalingType.SCALE_ASPECT_FILL)
-        mRemoteRenderer.setEnableHardwareScaler(true)
+        mFullscreenRenderer.init(eglBase.eglBaseContext, null)
+        mFullscreenRenderer.setScalingType(ScalingType.SCALE_ASPECT_FILL)
+        mFullscreenRenderer.setEnableHardwareScaler(true)
 
+        mPipRenderer.setOnClickListener {
+            swapRenderer()
+        }
 
-        mLocalRenderer.init(eglBase.eglBaseContext, null)
-        mLocalRenderer.setScalingType(ScalingType.SCALE_ASPECT_FIT)
-        mLocalRenderer.setZOrderMediaOverlay(true)
-        mLocalRenderer.setEnableHardwareScaler(true /* enabled */)
+        mPipRenderer.init(eglBase.eglBaseContext, null)
+        mPipRenderer.setScalingType(ScalingType.SCALE_ASPECT_FIT)
+        mPipRenderer.setZOrderMediaOverlay(true)
+        mPipRenderer.setEnableHardwareScaler(true)
+        mPipRenderer.setMirror(true)
     }
 
     private fun findVideoSender() {
@@ -489,24 +546,28 @@ abstract class BaseVideoCallActivity : AppCompatActivity() {
     /**
      * 创建相机媒体流
      */
-    private fun createCameraCapture(enumerator: CameraEnumerator): VideoCapturer? {
+    private fun createCameraCapture(enumerator: CameraEnumerator): CameraVideoCapturer? {
         val deviceNames = enumerator.deviceNames
 
-        // First, try to find front facing camera
+        //1.优先使用前置摄像头(用于视频通话时自拍)
         for (deviceName in deviceNames) {
             if (enumerator.isFrontFacing(deviceName)) {
-                val videoCapturer: VideoCapturer? = enumerator.createCapturer(deviceName, null)
+                val videoCapturer: CameraVideoCapturer? =
+                    enumerator.createCapturer(deviceName, null)
                 if (videoCapturer != null) {
+                    isUsingFrontCamera = true
                     return videoCapturer
                 }
             }
         }
 
-        // Front facing camera not found, try something else
+        //2.否则再使用其他摄像头(例如后置摄像头)
         for (deviceName in deviceNames) {
             if (!enumerator.isFrontFacing(deviceName)) {
-                val videoCapturer: VideoCapturer? = enumerator.createCapturer(deviceName, null)
+                val videoCapturer: CameraVideoCapturer? =
+                    enumerator.createCapturer(deviceName, null)
                 if (videoCapturer != null) {
+                    isUsingFrontCamera = true
                     return videoCapturer
                 }
             }

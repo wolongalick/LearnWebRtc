@@ -45,7 +45,6 @@ class VideoCallReceiveActivity : BaseVideoCallActivity() {
                 rlLocalVideoContainer.visibility = View.VISIBLE
                 ivSwitchCamera.visibility = View.VISIBLE
                 tvHangup.visibility = View.VISIBLE
-                init()
             }
         }
 

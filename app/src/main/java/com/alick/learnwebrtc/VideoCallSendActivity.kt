@@ -70,7 +70,6 @@ class VideoCallSendActivity : BaseVideoCallActivity() {
                 rlLocalVideoContainer.visibility = View.VISIBLE
                 isAnswered = true
                 tvDuration.beginChatTime()
-                init()
                 createOffer()
             }
         }
@@ -128,6 +127,8 @@ class VideoCallSendActivity : BaseVideoCallActivity() {
         WebSocketManager.addISignalOutgoingListener(iSignalOutgoingListener)
         WebSocketManager.addIContactsListener(iContactsListener)
         SignalManager.create(CreateRoomRequest())
+
+
     }
 
     private fun leave() {
