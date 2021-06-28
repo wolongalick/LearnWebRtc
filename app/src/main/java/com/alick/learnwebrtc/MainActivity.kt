@@ -8,8 +8,8 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.alick.learnwebrtc.constant.Constant
 import com.alick.learnwebrtc.manager.WebSocketManager
-import com.alick.learnwebrtc.utils.BLog
 import com.alick.learnwebrtc.utils.MMKVUtils
+import com.alick.learnwebrtc.utils.ToastUtils
 import kotlinx.android.synthetic.main.activity_main.*
 import org.java_websocket.handshake.ServerHandshake
 import pub.devrel.easypermissions.AfterPermissionGranted
@@ -45,9 +45,33 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        etAddress.setText(MMKVUtils.getString(Constant.MMKV_KEY_ADDRESS))
+        val outerAddress: String = MMKVUtils.getString(Constant.MMKV_KEY_OUTER_ADDRESS).let {
+            if (it.isNotBlank()) {
+                it
+            } else {
+                Constant.DEFAULT_OUTER_ADDRESS
+            }
+        }
+        val innerAddress = MMKVUtils.getString(Constant.MMKV_KEY_INNER_ADDRESS).let {
+            if (it.isNotBlank()) {
+                it
+            } else {
+                Constant.DEFAULT_INNER_ADDRESS
+            }
+        }
+
+        etOuterAddress.setText(outerAddress)
+        etInnerAddress.setText(innerAddress)
         etAccount.setText(MMKVUtils.getString(Constant.MMKV_KEY_ACCOUNT))
 
+        when (MMKVUtils.getString(Constant.MMKV_KEY_SELECT_ADDRESS_TYPE)) {
+            Constant.MMKV_VALUE_SELECT_ADDRESS_TYPE_OUTER -> {
+                rgAddress.check(R.id.rbOuterAddress)
+            }
+            Constant.MMKV_VALUE_SELECT_ADDRESS_TYPE_INNER -> {
+                rgAddress.check(R.id.rbInnerAddress)
+            }
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestPermissions(
@@ -58,15 +82,52 @@ class MainActivity : AppCompatActivity() {
                 ), REQUEST_CODE
             )
         }
+
     }
 
     fun login(view: View) {
-        val address = etAddress.text.toString().trim()
+        val outerAddress = etOuterAddress.text.toString().trim()
+        val innerAddress = etInnerAddress.text.toString().trim()
+
+        MMKVUtils.setString(Constant.MMKV_KEY_OUTER_ADDRESS, outerAddress)
+        MMKVUtils.setString(Constant.MMKV_KEY_INNER_ADDRESS, innerAddress)
+
+        val usingAddress = when (rgAddress.checkedRadioButtonId) {
+            R.id.rbOuterAddress -> {
+                MMKVUtils.setString(
+                    Constant.MMKV_KEY_SELECT_ADDRESS_TYPE,
+                    Constant.MMKV_VALUE_SELECT_ADDRESS_TYPE_OUTER
+                )
+                if (outerAddress.isBlank()) {
+                    ToastUtils.show("请填写外网地址")
+                    return
+                }
+                outerAddress
+            }
+            R.id.rbInnerAddress -> {
+                MMKVUtils.setString(
+                    Constant.MMKV_KEY_SELECT_ADDRESS_TYPE,
+                    Constant.MMKV_VALUE_SELECT_ADDRESS_TYPE_INNER
+                )
+                if (innerAddress.isBlank()) {
+                    ToastUtils.show("请填写内网地址")
+                    return
+                }
+                innerAddress
+            }
+            else -> {
+                ToastUtils.show("请先选择外网或内网")
+                return
+            }
+        }
+
+        MMKVUtils.setString(Constant.MMKV_KEY_USING_ADDRESS, usingAddress)
+
+
         val account = etAccount.text.toString().trim()
-        MMKVUtils.setString(Constant.MMKV_KEY_ADDRESS, address)
         MMKVUtils.setString(Constant.MMKV_KEY_ACCOUNT, account)
 
-        WebSocketManager.init(address, account)
+        WebSocketManager.init(usingAddress, account)
         WebSocketManager.addWebSocketListener(webSocketListener)
         WebSocketManager.connect()
     }
@@ -104,4 +165,5 @@ class MainActivity : AppCompatActivity() {
         WebSocketManager.clearAllWebSocketListener()
         super.onDestroy()
     }
+
 }

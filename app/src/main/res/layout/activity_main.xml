@@ -12,18 +12,78 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
-        <TextView
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_weight="1">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="外网地址:" />
+
+                <androidx.appcompat.widget.AppCompatEditText
+                    android:id="@+id/etOuterAddress"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="39.105.182.221:5001"
+                    android:layout_weight="1" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="内网地址:" />
+
+                <androidx.appcompat.widget.AppCompatEditText
+                    android:id="@+id/etInnerAddress"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:hint="192.168.129.162:5001"
+                    android:text="192.168.129.162:5001"
+                    android:layout_weight="1"
+                    android:textColor="#333333"
+                    />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+
+        <RadioGroup
+            android:id="@+id/rgAddress"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="地址:"
-            />
-        <EditText
-            android:id="@+id/etAddress"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="例如192.168.1.107:5001或www.cuixw.top"
-            android:text="192.168.1.107:5001"/>
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/rbOuterAddress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="使用外网地址" />
+
+
+            <RadioButton
+                android:id="@+id/rbInnerAddress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="使用内网地址" />
+
+        </RadioGroup>
     </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -32,13 +92,14 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="账号:"
-            />
+            android:text="账号:" />
+
         <EditText
             android:id="@+id/etAccount"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text=""/>
+            android:text=""
+            android:digits="0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" />
     </LinearLayout>
 
     <Button
@@ -46,7 +107,6 @@
         android:layout_height="wrap_content"
         android:text="登录"
         android:onClick="login"
-        android:layout_gravity="right"
-        />
+        android:layout_gravity="right" />
 
 </LinearLayout>

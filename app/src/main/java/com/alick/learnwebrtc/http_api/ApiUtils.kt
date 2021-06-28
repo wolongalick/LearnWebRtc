@@ -4,8 +4,6 @@ import com.alick.learnwebrtc.constant.Constant
 import com.alick.learnwebrtc.utils.BLog
 import com.alick.learnwebrtc.utils.JsonUtils
 import com.alick.learnwebrtc.utils.MMKVUtils
-import com.google.gson.JsonObject
-import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -35,7 +33,7 @@ class ApiUtils {
                 var httpURLConnection: HttpURLConnection? = null
                 try {//使用该地址创建一个 URL 对象
                     val url =
-                        URL("http://" + MMKVUtils.getString(Constant.MMKV_KEY_ADDRESS) + url_path)
+                        URL("http://" + MMKVUtils.getString(Constant.MMKV_KEY_USING_ADDRESS) + url_path)
                     //使用创建的URL对象的openConnection()方法创建一个HttpURLConnection对象
                     httpURLConnection = url.openConnection() as HttpURLConnection
                     //设置HttpURLConnection对象的参数
