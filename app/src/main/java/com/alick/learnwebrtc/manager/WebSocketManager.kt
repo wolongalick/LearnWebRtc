@@ -97,7 +97,7 @@ object WebSocketManager {
     private lateinit var webSocketClient: WebSocketClient
 
     fun init(url: String, account: String) {
-        webSocketClient = object : WebSocketClient(URI("ws://${url}/${account}")) {
+        webSocketClient = object : WebSocketClient(URI("ws://${url}/webSocket/${account}")) {
             override fun onOpen(handshakedata: ServerHandshake) {
                 iWebSocketListenerList.forEach {
                     it.onOpen(handshakedata)
